@@ -138,7 +138,7 @@ class SolrSearchBackend(BaseSearchBackend):
             self.log.error("Failed to query Solr using '%s': %s", query_string, e)
             raw_results = EmptyResults()
 
-        return self._process_results(raw_results, highlight=kwargs.get('highlight'), result_class=kwargs.get('result_class', SearchResult), distance_point=kwargs.get('distance_point'))
+        return self._process_results(raw_results, highlight=kwargs.get('highlight'), result_class=kwargs.get('result_class', SearchResult), distance_point=kwargs.get('distance_point'), group_by=kwargs.get('group_by', None))
 
     def build_search_kwargs(self, query_string, sort_by=None, start_offset=0, end_offset=None,
                             fields='', highlight=False, facets=None,
@@ -146,7 +146,7 @@ class SolrSearchBackend(BaseSearchBackend):
                             narrow_queries=None, spelling_query=None,
                             within=None, dwithin=None, distance_point=None,
                             models=None, limit_to_registered_models=None,
-                            result_class=None, stats=None):
+                            result_class=None, stats=None, group_by=None):
         kwargs = {'fl': '* score'}
 
         if fields:
@@ -276,6 +276,15 @@ class SolrSearchBackend(BaseSearchBackend):
             # kwargs['fl'] += ' _dist_:geodist()'
             pass
 
+        if group_by:
+            kwargs['group'] = 'true'
+            kwargs['group.field'] = group_by
+            kwargs['group.main'] = 'true'
+            kwargs['group.offset'] = start_offset
+            kwargs['start'] = 0
+            kwargs['group.limit'] = 24
+            kwargs['rows'] = 20 * 24
+
         return kwargs
 
     def more_like_this(self, model_instance, additional_query_string=None,
@@ -336,12 +345,20 @@ class SolrSearchBackend(BaseSearchBackend):
             self.log.error("Failed to fetch More Like This from Solr for document '%s': %s", query, e)
             raw_results = EmptyResults()
 
-        return self._process_results(raw_results, result_class=result_class)
+        return self._process_results(raw_results, result_class=result_class, group_by=kwargs.get('group_by', None))
 
-    def _process_results(self, raw_results, highlight=False, result_class=None, distance_point=None):
+    def _process_results(self, raw_results, highlight=False, result_class=None, distance_point=None, 
+            group_by=None):
         from haystack import connections
         results = []
-        hits = raw_results.hits
+        # Aamir: consider the fetched items as the hits
+        # so that we can fetch a number of items per group
+        # result.hits in this case returns the number of all matched items
+        # which we dont want
+        if group_by:
+            hits = len(raw_results.docs)
+        else:
+            hits = raw_results.hits
         facets = {}
         stats = {}
         spelling_suggestion = None
@@ -682,6 +699,9 @@ class SolrSearchQuery(BaseSearchQuery):
         """Builds and executes the query. Returns a list of search results."""
         final_query = self.build_query()
         search_kwargs = self.build_params(spelling_query, **kwargs)
+
+        if self.group_by:
+            search_kwargs['group_by'] = self.group_by
 
         if kwargs:
             search_kwargs.update(kwargs)

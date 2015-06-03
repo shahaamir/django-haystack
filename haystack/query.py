@@ -322,6 +322,12 @@ class SearchQuerySet(object):
 
         return clone
 
+    def group_by(self, field_name):
+        """Alters the order in which the results should appear."""
+        clone = self._clone()
+        clone.query.add_group_by(field_name)
+        return clone
+
     def highlight(self):
         """Adds highlighting to the results."""
         clone = self._clone()

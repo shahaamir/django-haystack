@@ -133,7 +133,7 @@ class BaseSearchBackend(object):
                             narrow_queries=None, spelling_query=None,
                             within=None, dwithin=None, distance_point=None,
                             models=None, limit_to_registered_models=None,
-                            result_class=None):
+                            result_class=None, group_by=None):
         # A convenience method most backends should include in order to make
         # extension easier.
         raise NotImplementedError
@@ -446,6 +446,7 @@ class BaseSearchQuery(object):
     def __init__(self, using=DEFAULT_ALIAS):
         self.query_filter = SearchNode()
         self.order_by = []
+        self.group_by = None
         self.models = set()
         self.boost = {}
         self.start_offset = 0
@@ -507,6 +508,9 @@ class BaseSearchQuery(object):
 
         if self.order_by:
             kwargs['sort_by'] = self.order_by
+
+        if self.group_by:
+            kwargs['group_by'] = self.group_by
 
         if self.end_offset is not None:
             kwargs['end_offset'] = self.end_offset
@@ -805,6 +809,16 @@ class BaseSearchQuery(object):
         """
         self.order_by = []
 
+    def add_group_by(self, group_by):
+        """Group the search result by a field."""
+        self.group_by = group_by
+
+    def clear_group_by(self):
+        """
+        cancel field collapsing
+        """
+        self.group_by = None
+
     def add_model(self, model):
         """
         Restricts the query requiring matches in the given model.
@@ -988,6 +1002,7 @@ class BaseSearchQuery(object):
         clone = klass(using=using)
         clone.query_filter = deepcopy(self.query_filter)
         clone.order_by = self.order_by[:]
+        clone.group_by = self.group_by
         clone.models = self.models.copy()
         clone.boost = self.boost.copy()
         clone.highlight = self.highlight

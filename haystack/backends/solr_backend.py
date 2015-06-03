@@ -10,7 +10,8 @@ from django.db.models.loading import get_model
 from django.utils import six
 
 from haystack.backends import BaseEngine, BaseSearchBackend, BaseSearchQuery, EmptyResults, log_query
-from haystack.constants import DJANGO_CT, DJANGO_ID, ID
+from haystack.constants import DJANGO_CT, DJANGO_ID, ID, \
+        HAYSTACK_GROUP_LIMIT, HAYSTACK_GROUP_DOCS_LIMIT
 from haystack.exceptions import MissingDependency, MoreLikeThisError, SkipDocument
 from haystack.inputs import Clean, Exact, PythonData, Raw
 from haystack.models import SearchResult
@@ -280,10 +281,10 @@ class SolrSearchBackend(BaseSearchBackend):
             kwargs['group'] = 'true'
             kwargs['group.field'] = group_by
             kwargs['group.main'] = 'true'
-            kwargs['group.offset'] = start_offset
+            kwargs['group.offset'] = 0
             kwargs['start'] = 0
-            kwargs['group.limit'] = 24
-            kwargs['rows'] = 20 * 24
+            kwargs['group.limit'] = HAYSTACK_GROUP_DOCS_LIMIT
+            kwargs['rows'] = HAYSTACK_GROUP_LIMIT * HAYSTACK_GROUP_DOCS_LIMIT
 
         return kwargs
 
